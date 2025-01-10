@@ -3,7 +3,7 @@
 
 AC_PREREQ([27.69])
 AC_INIT([cbsh], [1.0], [shreyashmotunew@gmail.com])
-AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([-Wall foreign])
 AC_CONFIG_SRCDIR([main.c])
 AC_CONFIG_HEADERS([config.h])
 
