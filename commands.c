@@ -320,7 +320,7 @@ void executeNext(Token *tokens, int numTokens) {
         nextLine = currentLine + 1;
     } else {
         // Loop again, go back to the line after FOR
-        nextLine = forLineIndex + 1;
+        nextLine = loopVar->forStartLine + 1;
     }
 }
 
