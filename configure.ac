@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ([27.69])
+AC_PREREQ([2.69])
 AC_INIT([cbsh], [1.0], [shreyashmotunew@gmail.com])
 AM_INIT_AUTOMAKE([-Wall foreign])
 AC_CONFIG_SRCDIR([main.c])
