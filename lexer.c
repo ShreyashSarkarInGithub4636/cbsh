@@ -5,29 +5,42 @@ Token getNextToken(char *line, int *pos) {
     Token token;
     token.type = TOKEN_EOF; // Default
     token.keyword = KW_NONE;
+    token.value[0] = '\0';  // Initialize value
 
     // Skip whitespace
     while (line[*pos] == ' ' || line[*pos] == '\t') {
         (*pos)++;
     }
 
-    if (line[*pos] == '\0' || line[*pos] == '\n') {
+    // Handle end of line, including carriage return
+    if (line[*pos] == '\0' || line[*pos] == '\n' || line[*pos] == '\r') {
         token.type = TOKEN_NEWLINE;
-    } else if (line[*pos] == '\'') { // Handle comments (REMARK)
+        return token;
+    }
+
+    // Handle comments (REMARK or ')
+     if (line[*pos] == '\'') {
         token.type = TOKEN_KEYWORD;
         token.keyword = KW_REM;
         strcpy(token.value, "REM");
         (*pos)++;
-        while (line[*pos] != '\0' && line[*pos] != '\n') {
-            (*pos)++;
+        // Consume rest of line
+        while (line[*pos] != '\0' && line[*pos] != '\n' && line[*pos] != '\r') {
+           (*pos)++;
         }
-    } else if (isalpha(line[*pos])) {
+        return token;
+    }
+    
+    if (isalpha(line[*pos])) {
         // Identifier or keyword
         int start = *pos;
         while (isalnum(line[*pos]) || line[*pos] == '$') { // Handle string variables (e.g., A$)
             (*pos)++;
         }
         int len = *pos - start;
+        if (len >= MAX_LINE_LENGTH) {
+            len = MAX_LINE_LENGTH - 1; // Prevent buffer overflow
+        }
         strncpy(token.value, &line[start], len);
         token.value[len] = '\0';
         token.type = TOKEN_IDENTIFIER;
@@ -60,39 +73,50 @@ Token getNextToken(char *line, int *pos) {
         else if (strcasecmp(token.value, "STEP") == 0) token.keyword = KW_STEP;
         else if (strcasecmp(token.value, "GOTO") == 0) token.keyword = KW_GOTO;
         else if (strcasecmp(token.value, "GOSUB") == 0) token.keyword = KW_GOSUB;
-        else if (strcasecmp(token.value, "SET") == 0) token.keyword = KW_SET;
-        else if (strcasecmp(token.value, "TO") == 0) token.keyword = KW_TO;
-        else if (strcasecmp(token.value, "RUN") == 0) token.keyword = KW_RUN;
+         else if (strcasecmp(token.value, "SET") == 0) token.keyword = KW_SET;
+         else if (strcasecmp(token.value, "TO") == 0) token.keyword = KW_TO;
+         else if (strcasecmp(token.value, "RUN") == 0) token.keyword = KW_RUN;
 
         if (token.keyword != KW_NONE) {
             token.type = TOKEN_KEYWORD;
         }
+        return token;
     } else if (isdigit(line[*pos])) {
         // Number
         int start = *pos;
-        while (isdigit(line[*pos]) || line[*pos] == '.') {
+         while (isdigit(line[*pos]) || line[*pos] == '.') {
             (*pos)++;
         }
         int len = *pos - start;
+        if (len >= MAX_LINE_LENGTH) {
+            len = MAX_LINE_LENGTH - 1; // Prevent buffer overflow
+        }
         strncpy(token.value, &line[start], len);
         token.value[len] = '\0';
         token.type = TOKEN_NUMBER;
+        return token;
     } else if (line[*pos] == '"') {
         // String literal
         (*pos)++;
         int start = *pos;
-        while (line[*pos] != '"' && line[*pos] != '\0') {
-            (*pos)++;
+        while (line[*pos] != '"' && line[*pos] != '\0' && line[*pos] != '\n' && line[*pos] != '\r') {
+           (*pos)++;
         }
         if (line[*pos] == '"') {
             int len = *pos - start;
+             if (len >= MAX_LINE_LENGTH) {
+                len = MAX_LINE_LENGTH - 1; // Prevent buffer overflow
+            }
             strncpy(token.value, &line[start], len);
             token.value[len] = '\0';
             token.type = TOKEN_STRING;
-            (*pos)++; // Consume the closing quote
+            (*pos)++;
+            return token;
         } else {
             // Handle unterminated string error
             printf("Unterminated string\n");
+            token.type = TOKEN_EOF;
+            return token;
         }
     } else if (strchr("+-*/=<>(),", line[*pos]) != NULL) {
         // Operator or punctuation
@@ -100,19 +124,21 @@ Token getNextToken(char *line, int *pos) {
         token.value[1] = '\0';
         token.type = TOKEN_OPERATOR;
         (*pos)++;
+        return token;
     } else if (line[*pos] == ':') {
         // Colon (for multiple statements on a line)
         token.value[0] = line[*pos];
         token.value[1] = '\0';
         token.type = TOKEN_COLON;
         (*pos)++;
+        return token;
     } else {
         // Invalid character (handle error)
         printf("Invalid character: %c\n", line[*pos]);
         (*pos)++;
+        token.type = TOKEN_EOF;
+        return token;
     }
-
-    return token;
 }
 
 // Tokenize a line of input and store tokens in the Line structure
@@ -120,7 +146,7 @@ void tokenizeLine(char *line, Line *lineStruct) {
     int pos = 0;
     lineStruct->numTokens = 0;
 
-    // Check if the line starts with a line number
+     // Check if the line starts with a line number
     Token firstToken = getNextToken(line, &pos);
     if (firstToken.type == TOKEN_NUMBER) {
         lineStruct->lineNumber = atoi(firstToken.value);
@@ -131,11 +157,13 @@ void tokenizeLine(char *line, Line *lineStruct) {
         pos = 0;
     }
 
+
     // Tokenize the rest of the line
-    while (pos < strlen(line)) {
+    size_t lineLength = strlen(line);
+    while (pos < lineLength) {
         Token token = getNextToken(line, &pos);
-        if (token.type == TOKEN_EOF) {
-            break;
+        if (token.type == TOKEN_EOF || token.type == TOKEN_NEWLINE) {
+             break;
         }
         lineStruct->tokens[lineStruct->numTokens++] = token;
     }
