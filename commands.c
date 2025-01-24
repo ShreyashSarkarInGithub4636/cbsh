@@ -1,5 +1,19 @@
 #include "cbsh.h"
 
+// --- Helper Functions ---
+
+// Find the line number of the target
+int findLineIndex(int lineNumber) {
+    for (int i = 0; i < numLines; i++) {
+        if (program[i].lineNumber == lineNumber) {
+            return i;
+        }
+    }
+    return -1;  // Not found
+}
+
+// --- Command Execution Functions ---
+
 // Execute LIST command
 void executeList(int startLine, int endLine) {
     for (int i = 0; i < numLines; i++) {
@@ -15,54 +29,77 @@ void executeList(int startLine, int endLine) {
 
 // Execute NEW command
 void executeNew() {
-    numLines = 0;      // Clear the program
-    numVariables = 0;  // Clear variables
-    numDataValues = 0; // Clear DATA
+    numLines = 0;
+    numVariables = 0;
+    numDataValues = 0;
     dataReadPtr = 0;
     currentLine = 0;
     running = false;
+    gosubStackPtr = 0; // Reset GOSUB stack
+    for (int i = 0; i < MAX_VARIABLES; i++) {
+        variables[i].name[0] = '\0'; // Invalidate the variable
+    }
 }
+
 
 // Execute PRINT command
 void executePrint(Token *tokens, int numTokens) {
     for (int i = 1; i < numTokens; i++) {
-        if (tokens[i].type == TOKEN_STRING) {
-            printf("%s", tokens[i].value);
-        } else if (tokens[i].type == TOKEN_IDENTIFIER) {
-            Variable *var = findVariable(tokens[i].value);
-            if (var) {
-                if (var->type == VAR_TYPE_NUMERIC) {
-                    printf("%g", var->numValue);
+        switch (tokens[i].type) {
+            case TOKEN_STRING:
+                printf("%s", tokens[i].value);
+                break;
+            case TOKEN_IDENTIFIER: {
+                Variable *var = findVariable(tokens[i].value);
+                if (var) {
+                    if (var->type == VAR_TYPE_NUMERIC) {
+                        printf("%g", var->numValue);
+                    } else {
+                        printf("%s", var->strValue);
+                    }
                 } else {
-                    printf("%s", var->strValue);
+                    printf("0"); // Default value for undefined numeric variables
                 }
-            } else {
-                printf("0"); // Default value for undefined numeric variables
+                break;
             }
-        } else if (tokens[i].type == TOKEN_NUMBER) {
-            printf("%g", atof(tokens[i].value));
-        } else if (tokens[i].type == TOKEN_OPERATOR && strcmp(tokens[i].value, ",") == 0) {
-            printf("\t"); // Basic comma spacing
-        } else if (tokens[i].keyword == KW_TAB) {
-            if (i + 1 < numTokens && tokens[i + 1].type == TOKEN_NUMBER) {
-                int spaces = atoi(tokens[i + 1].value);
-                for (int j = 0; j < spaces; j++) {
+            case TOKEN_NUMBER:
+                printf("%g", atof(tokens[i].value));
+                break;
+            case TOKEN_OPERATOR:
+                if (strcmp(tokens[i].value, ",") == 0) {
+                    printf("\t");
+                } else if (strcmp(tokens[i].value, ";") == 0) {
+                    // No newline, just continue printing
+                } else {
                     printf(" ");
                 }
-                i++; // Skip the next token (number of spaces)
-            }
-        } else if (tokens[i].type == TOKEN_OPERATOR && strcmp(tokens[i].value, ";") == 0) {
-            // No newline, just continue printing
-        } else {
-            printf(" "); // Default space
+                break;
+            case TOKEN_KEYWORD:
+                if (tokens[i].keyword == KW_TAB) {
+                    if (i + 1 < numTokens && tokens[i + 1].type == TOKEN_NUMBER) {
+                        int spaces = atoi(tokens[i + 1].value);
+                        for (int j = 0; j < spaces; j++) {
+                            printf(" ");
+                        }
+                        i++;
+                    }
+                } else {
+                    printf(" ");
+                }
+                break;
+            default:
+                printf(" ");
+                break;
         }
     }
+
     if (numTokens > 1 && tokens[numTokens - 1].type == TOKEN_OPERATOR && strcmp(tokens[numTokens - 1].value, ";") == 0) {
-        // Don't print a newline if the last token is a semicolon
+        // No newline
     } else {
         printf("\n");
     }
 }
+
 
 // Execute INPUT command
 void executeInput(Token *tokens, int numTokens) {
@@ -71,61 +108,50 @@ void executeInput(Token *tokens, int numTokens) {
         return;
     }
 
-    // Check for a prompt string
-    int varIndex = 1; // Index of the variable to store input
+    int varIndex = 1;
     if (tokens[1].type == TOKEN_STRING) {
-        printf("%s", tokens[1].value); // Print the prompt
+        printf("%s", tokens[1].value);
         varIndex = 2;
         if (varIndex >= numTokens || tokens[varIndex].type != TOKEN_IDENTIFIER) {
             printf("Missing variable in INPUT statement\n");
             return;
         }
     } else if (tokens[1].type == TOKEN_IDENTIFIER) {
-        printf("? "); // Default prompt if no string is provided
+        printf("? ");
     } else {
         printf("Invalid INPUT statement\n");
         return;
     }
 
-    // Get the variable to store input
     Variable *var = findVariable(tokens[varIndex].value);
     if (!var) {
-        // Create a new variable (determine type based on name or later input)
         if (strchr(tokens[varIndex].value, '$') != NULL) {
-            // String variable (if it ends with $)
             addOrUpdateVariable(tokens[varIndex].value, VAR_TYPE_STRING, 0, "");
             var = findVariable(tokens[varIndex].value);
         } else {
-            // Assume numeric by default
             addOrUpdateVariable(tokens[varIndex].value, VAR_TYPE_NUMERIC, 0, "");
             var = findVariable(tokens[varIndex].value);
         }
     }
 
-    // Read input from user
     char inputBuffer[MAX_LINE_LENGTH];
     if (fgets(inputBuffer, sizeof(inputBuffer), stdin) == NULL) {
         printf("Error reading input\n");
-        return; // Handle input error
+        return;
     }
 
-    // Remove trailing newline from input
     inputBuffer[strcspn(inputBuffer, "\n")] = 0;
 
-    // Store input in the variable
     if (var->type == VAR_TYPE_NUMERIC) {
-        // Try to convert to a number
         char *endptr;
         double numValue = strtod(inputBuffer, &endptr);
         if (*endptr != '\0') {
-            // Conversion failed, not a valid number
             printf("Invalid number input\n");
-            var->numValue = 0; // Reset to 0 (or handle error differently)
+            var->numValue = 0;
         } else {
             var->numValue = numValue;
         }
     } else {
-        // Store as string
         strcpy(var->strValue, inputBuffer);
     }
 }
@@ -150,12 +176,10 @@ void executeLet(Token *tokens, int numTokens) {
         return;
     }
 
-    // Extract variable name
     char varName[MAX_LINE_LENGTH];
     strncpy(varName, tokens[0].value, sizeof(varName) - 1);
-    varName[sizeof(varName) - 1] = '\0'; // Ensure null-termination
+    varName[sizeof(varName) - 1] = '\0';
 
-    // Determine variable type
     VarType varType;
     if (strchr(varName, '$') != NULL) {
         varType = VAR_TYPE_STRING;
@@ -163,7 +187,6 @@ void executeLet(Token *tokens, int numTokens) {
         varType = VAR_TYPE_NUMERIC;
     }
 
-    // Evaluate the expression on the right-hand side
     if (varType == VAR_TYPE_NUMERIC) {
         double value = evaluateExpression(&tokens[assignmentOpIndex + 1], numTokens - assignmentOpIndex - 1);
         addOrUpdateVariable(varName, varType, value, "");
@@ -171,7 +194,6 @@ void executeLet(Token *tokens, int numTokens) {
         if (tokens[assignmentOpIndex + 1].type == TOKEN_STRING) {
             addOrUpdateVariable(varName, varType, 0, tokens[assignmentOpIndex + 1].value);
         } else if (tokens[assignmentOpIndex + 1].type == TOKEN_IDENTIFIER) {
-            // Handle string variable assignment here (e.g., A$ = B$)
             char *strValue = getStringValue(&tokens[assignmentOpIndex + 1]);
             addOrUpdateVariable(varName, varType, 0, strValue);
         } else {
@@ -179,6 +201,7 @@ void executeLet(Token *tokens, int numTokens) {
         }
     }
 }
+
 
 // Execute IF command
 void executeIf(Token *tokens, int numTokens) {
@@ -195,14 +218,11 @@ void executeIf(Token *tokens, int numTokens) {
         return;
     }
 
-    // Evaluate the condition
     double conditionResult = evaluateExpression(tokens + 1, thenIndex - 1);
 
-    // If the condition is true, execute the THEN part
     if (conditionResult != 0) {
-        // Execute tokens after THEN as a new statement
         Line thenStatement;
-        thenStatement.lineNumber = 0; // Treat it as an immediate mode line
+        thenStatement.lineNumber = 0;
         thenStatement.numTokens = 0;
         for (int i = thenIndex + 1; i < numTokens; i++) {
             thenStatement.tokens[thenStatement.numTokens++] = tokens[i];
@@ -210,6 +230,7 @@ void executeIf(Token *tokens, int numTokens) {
         executeLine(&thenStatement);
     }
 }
+
 
 // Execute FOR command
 void executeFor(Token *tokens, int numTokens) {
@@ -223,19 +244,17 @@ void executeFor(Token *tokens, int numTokens) {
     double endValue = evaluateExpression(&tokens[5], 1);
     double stepValue = 1; // Default step
 
-    // Check for optional STEP
     int stepIndex = 6;
     if (stepIndex < numTokens && tokens[stepIndex].keyword == KW_STEP) {
         if (stepIndex + 1 < numTokens) {
             stepValue = evaluateExpression(&tokens[stepIndex + 1], 1);
-            stepIndex += 2; // Skip STEP and its value
+            stepIndex += 2;
         } else {
             printf("Missing value after STEP\n");
             return;
         }
     }
 
-    // Find or create the loop variable
     Variable *loopVar = findVariable(varName);
     if (!loopVar) {
         addOrUpdateVariable(varName, VAR_TYPE_NUMERIC, startValue, "");
@@ -244,18 +263,15 @@ void executeFor(Token *tokens, int numTokens) {
         loopVar->numValue = startValue;
     }
 
-    // Find the matching NEXT statement
     int nextLineIndex = -1;
     for (int i = currentLine + 1; i < numLines; i++) {
         if (program[i].numTokens > 0 && program[i].tokens[0].keyword == KW_NEXT) {
-            // Check if NEXT refers to the correct variable (optional in some BASICs)
             if (program[i].numTokens > 1 && program[i].tokens[1].type == TOKEN_IDENTIFIER) {
                 if (strcmp(program[i].tokens[1].value, varName) == 0) {
                     nextLineIndex = i;
                     break;
                 }
             } else {
-                // Unnamed NEXT matches any FOR
                 nextLineIndex = i;
                 break;
             }
@@ -267,13 +283,11 @@ void executeFor(Token *tokens, int numTokens) {
         return;
     }
 
-    // Store the loop information for later execution in executeNext
     loopVar->forNextLine = nextLineIndex;
     loopVar->forStep = stepValue;
     loopVar->forEnd = endValue;
-    loopVar->forStartLine = currentLine; // Store the line number of FOR
+    loopVar->forStartLine = currentLine;
 
-    // Continue execution to the next line after FOR
     nextLine = currentLine + 1;
 }
 
@@ -284,7 +298,6 @@ void executeNext(Token *tokens, int numTokens) {
         varName = tokens[1].value;
     }
 
-    // Find the matching FOR loop
     int forLineIndex = -1;
     Variable *loopVar = NULL;
     if (varName) {
@@ -293,7 +306,6 @@ void executeNext(Token *tokens, int numTokens) {
             forLineIndex = loopVar->forStartLine;
         }
     } else {
-        // Find the most recent FOR (in case of nested loops)
         for (int i = currentLine - 1; i >= 0; i--) {
             if (program[i].numTokens > 0 && program[i].tokens[0].keyword == KW_FOR) {
                 loopVar = findVariable(program[i].tokens[1].value);
@@ -310,19 +322,16 @@ void executeNext(Token *tokens, int numTokens) {
         return;
     }
 
-    // Update loop variable
     loopVar->numValue += loopVar->forStep;
 
-    // Check if loop should terminate
     if ((loopVar->forStep > 0 && loopVar->numValue > loopVar->forEnd) ||
         (loopVar->forStep < 0 && loopVar->numValue < loopVar->forEnd)) {
-        // Loop finished, continue to the line after NEXT
         nextLine = currentLine + 1;
     } else {
-        // Loop again, go back to the line after FOR
         nextLine = loopVar->forStartLine + 1;
     }
 }
+
 
 // Execute DATA command
 void executeData(Token *tokens, int numTokens) {
@@ -335,12 +344,12 @@ void executeData(Token *tokens, int numTokens) {
                 return;
             }
         } else if (tokens[i].type == TOKEN_STRING) {
-            // Handle string data (you might need a separate array for string data)
             printf("String DATA not yet implemented\n");
             return;
         }
     }
 }
+
 
 // Execute READ command
 void executeRead(Token *tokens, int numTokens) {
@@ -353,7 +362,6 @@ void executeRead(Token *tokens, int numTokens) {
         if (tokens[i].type == TOKEN_IDENTIFIER) {
             Variable *var = findVariable(tokens[i].value);
             if (!var) {
-                // Create a new numeric variable (string DATA not handled in this example)
                 addOrUpdateVariable(tokens[i].value, VAR_TYPE_NUMERIC, 0, "");
                 var = findVariable(tokens[i].value);
             }
@@ -368,10 +376,12 @@ void executeRead(Token *tokens, int numTokens) {
     }
 }
 
+
 // Execute RESTORE command
 void executeRestore() {
-    dataReadPtr = 0; // Reset the data pointer
+    dataReadPtr = 0;
 }
+
 
 // Execute GOTO command
 void executeGoto(Token *tokens, int numTokens) {
@@ -381,18 +391,9 @@ void executeGoto(Token *tokens, int numTokens) {
     }
 
     int targetLine = atoi(tokens[1].value);
-
-    // Find the target line
-    int targetIndex = -1;
-    for (int i = 0; i < numLines; i++) {
-        if (program[i].lineNumber == targetLine) {
-            targetIndex = i;
-            break;
-        }
-    }
-
+    int targetIndex = findLineIndex(targetLine);
     if (targetIndex != -1) {
-        nextLine = targetIndex; // Jump to the target line
+        nextLine = targetIndex;
     } else {
         printf("Undefined line %d\n", targetLine);
     }
@@ -406,18 +407,9 @@ void executeGosub(Token *tokens, int numTokens) {
     }
 
     int targetLine = atoi(tokens[1].value);
-
-    // Find the target line
-    int targetIndex = -1;
-    for (int i = 0; i < numLines; i++) {
-        if (program[i].lineNumber == targetLine) {
-            targetIndex = i;
-            break;
-        }
-    }
+    int targetIndex = findLineIndex(targetLine);
 
     if (targetIndex != -1) {
-        // Push the next line number onto the GOSUB stack
         if (gosubStackPtr < MAX_GOSUB_STACK) {
             gosubStack[gosubStackPtr++] = currentLine + 1;
             nextLine = targetIndex;
@@ -429,68 +421,23 @@ void executeGosub(Token *tokens, int numTokens) {
     }
 }
 
+
 // Execute RETURN command
 void executeReturn() {
     if (gosubStackPtr > 0) {
-        nextLine = gosubStack[--gosubStackPtr]; // Pop the return line number
+        nextLine = gosubStack[--gosubStackPtr];
     } else {
         printf("RETURN without GOSUB\n");
     }
 }
 
+
 // Execute END command
 void executeEnd() {
     running = false;
-    nextLine = 0; // Reset to the beginning of the program
+    nextLine = 0;
 }
 
-// Execute a line of BASIC code
-void executeLine(Line *line) {
-    if (line->numTokens == 0) {
-        return; // Empty line
-    }
-
-    if (line->tokens[0].keyword == KW_REM) {
-        // It's a comment, do nothing
-        return;
-    } else if (line->tokens[0].keyword == KW_LET) {
-        executeLet(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_PRINT) {
-        executePrint(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_INPUT) {
-        executeInput(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_IF) {
-        executeIf(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_FOR) {
-        executeFor(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_NEXT) {
-        executeNext(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_GOTO) {
-        executeGoto(line->tokens, line->numTokens);
-        } else if (line->tokens[0].keyword == KW_GOSUB) {
-        executeGosub(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_RETURN) {
-        executeReturn();
-    } else if (line->tokens[0].keyword == KW_DATA) {
-        executeData(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_READ) {
-        executeRead(line->tokens, line->numTokens);
-    } else if (line->tokens[0].keyword == KW_RESTORE) {
-        executeRestore();
-    } else if (line->tokens[0].keyword == KW_END) {
-        executeEnd();
-    } else if (line->tokens[0].keyword == KW_SET) {
-        executeSet(line->tokens, line->numTokens);
-    } else if (line->tokens[0].type == TOKEN_IDENTIFIER) {
-        // Implicit LET (assignment without LET keyword)
-        executeLet(line->tokens, line->numTokens);
-    } else if (line->tokens[0].type == TOKEN_NUMBER) {
-        // Line number without a command (shouldn't happen during execution)
-        printf("Syntax error\n");
-    } else {
-        printf("Unimplemented command: %s\n", line->tokens[0].value);
-    }
-}
 
 // Execute SET command
 void executeSet(Token *tokens, int numTokens) {
@@ -515,5 +462,73 @@ void executeSet(Token *tokens, int numTokens) {
         }
     } else {
         printf("Unknown variable in SET statement\n");
+    }
+}
+
+// Execute a line of BASIC code
+void executeLine(Line *line) {
+    if (line->numTokens == 0) {
+        return;
+    }
+
+    switch (line->tokens[0].keyword) {
+        case KW_REM:
+            // Comment, do nothing
+            break;
+        case KW_LET:
+            executeLet(line->tokens, line->numTokens);
+            break;
+        case KW_PRINT:
+            executePrint(line->tokens, line->numTokens);
+            break;
+        case KW_INPUT:
+            executeInput(line->tokens, line->numTokens);
+            break;
+        case KW_IF:
+            executeIf(line->tokens, line->numTokens);
+            break;
+        case KW_FOR:
+            executeFor(line->tokens, line->numTokens);
+            break;
+        case KW_NEXT:
+            executeNext(line->tokens, line->numTokens);
+            break;
+        case KW_GOTO:
+            executeGoto(line->tokens, line->numTokens);
+            break;
+        case KW_GOSUB:
+            executeGosub(line->tokens, line->numTokens);
+            break;
+        case KW_RETURN:
+            executeReturn();
+            break;
+        case KW_DATA:
+            executeData(line->tokens, line->numTokens);
+            break;
+        case KW_READ:
+            executeRead(line->tokens, line->numTokens);
+            break;
+        case KW_RESTORE:
+            executeRestore();
+            break;
+        case KW_END:
+            executeEnd();
+            break;
+        case KW_SET:
+            executeSet(line->tokens, line->numTokens);
+            break;
+        case KW_NONE:
+            if (line->tokens[0].type == TOKEN_IDENTIFIER) {
+                // Implicit LET
+                executeLet(line->tokens, line->numTokens);
+            } else if (line->tokens[0].type == TOKEN_NUMBER) {
+                printf("Syntax error\n");
+            } else {
+                printf("Unimplemented command: %s\n", line->tokens[0].value);
+            }
+            break;
+        default:
+            printf("Unimplemented command: %s\n", line->tokens[0].value);
+            break;
     }
 }
