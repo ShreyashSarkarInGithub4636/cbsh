@@ -41,7 +41,6 @@ void executeNew() {
     }
 }
 
-
 // Execute PRINT command
 void executePrint(Token *tokens, int numTokens) {
     for (int i = 1; i < numTokens; i++) {
@@ -100,6 +99,66 @@ void executePrint(Token *tokens, int numTokens) {
     }
 }
 
+// Execute LOAD command
+void executeLoad(Token *tokens, int numTokens) {
+    if (numTokens < 2 || tokens[1].type != TOKEN_STRING) {
+        printf("Invalid LOAD statement\n");
+        return;
+    }
+
+    char *filename = tokens[1].value;
+    char *path = getenv("PATH");
+    char *pathCopy = strdup(path); // Create a copy for strtok
+    char *dir = strtok(pathCopy, ":");
+    char fullPath[MAX_LINE_LENGTH];
+
+    while (dir != NULL) {
+        snprintf(fullPath, sizeof(fullPath), "%s/%s", dir, filename);
+
+        if (access(fullPath, X_OK) == 0) {
+            pid_t pid = fork();
+            if (pid == 0) {
+                // Child process
+                execve(fullPath, NULL, environ);
+                perror("execve"); // Execve failed
+                exit(1);
+            } else if (pid > 0) {
+                // Parent process
+                wait(NULL); // Wait for child to complete
+                free(pathCopy);
+                return;
+            } else {
+                perror("fork");
+                free(pathCopy);
+                return;
+            }
+        }
+
+        dir = strtok(NULL, ":");
+    }
+
+    printf("File not found or not executable: %s\n", filename);
+    free(pathCopy);
+}
+
+// Execute DIR command
+void executeDir() {
+    char cwd[MAX_LINE_LENGTH];
+    if (getcwd(cwd, sizeof(cwd)) != NULL) {
+        DIR *dir = opendir(cwd);
+        if (dir) {
+            struct dirent *entry;
+            while ((entry = readdir(dir)) != NULL) {
+                printf("%s\n", entry->d_name);
+            }
+            closedir(dir);
+        } else {
+            perror("opendir");
+        }
+    } else {
+        perror("getcwd");
+    }
+}
 
 // Execute INPUT command
 void executeInput(Token *tokens, int numTokens) {
@@ -202,7 +261,6 @@ void executeLet(Token *tokens, int numTokens) {
     }
 }
 
-
 // Execute IF command
 void executeIf(Token *tokens, int numTokens) {
     int thenIndex = -1;
@@ -230,7 +288,6 @@ void executeIf(Token *tokens, int numTokens) {
         executeLine(&thenStatement);
     }
 }
-
 
 // Execute FOR command
 void executeFor(Token *tokens, int numTokens) {
@@ -332,7 +389,6 @@ void executeNext(Token *tokens, int numTokens) {
     }
 }
 
-
 // Execute DATA command
 void executeData(Token *tokens, int numTokens) {
     for (int i = 1; i < numTokens; i++) {
@@ -349,7 +405,6 @@ void executeData(Token *tokens, int numTokens) {
         }
     }
 }
-
 
 // Execute READ command
 void executeRead(Token *tokens, int numTokens) {
@@ -376,12 +431,10 @@ void executeRead(Token *tokens, int numTokens) {
     }
 }
 
-
 // Execute RESTORE command
 void executeRestore() {
     dataReadPtr = 0;
 }
-
 
 // Execute GOTO command
 void executeGoto(Token *tokens, int numTokens) {
@@ -421,7 +474,6 @@ void executeGosub(Token *tokens, int numTokens) {
     }
 }
 
-
 // Execute RETURN command
 void executeReturn() {
     if (gosubStackPtr > 0) {
@@ -431,13 +483,11 @@ void executeReturn() {
     }
 }
 
-
 // Execute END command
 void executeEnd() {
     running = false;
     nextLine = 0;
 }
-
 
 // Execute SET command
 void executeSet(Token *tokens, int numTokens) {
