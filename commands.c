@@ -43,10 +43,43 @@ void executeNew() {
 
 // Execute PRINT command
 void executePrint(Token *tokens, int numTokens) {
+    int enableEscapeSequences = 0;  // Flag for the -e option
+
+    // Check if -e is the first token
+    if (numTokens > 1 && strcmp(tokens[1].value, "-e") == 0) {
+        enableEscapeSequences = 1;
+        // Skip the -e token in the print processing
+        tokens++;
+        numTokens--;
+    }
+
     for (int i = 1; i < numTokens; i++) {
         switch (tokens[i].type) {
             case TOKEN_STRING:
-                printf("%s", tokens[i].value);
+                if (enableEscapeSequences) {
+                    // Use echo -e-like behavior for escape sequences
+                    char *str = tokens[i].value;
+                    for (int j = 0; str[j] != '\0'; j++) {
+                        if (str[j] == '\\' && str[j+1] != '\0') {
+                            j++; // Skip the backslash
+                            switch (str[j]) {
+                                case 'n': printf("\n"); break;
+                                case 't': printf("\t"); break;
+                                case '\\': printf("\\"); break;
+                                case 'r': printf("\r"); break;
+                                case 'b': printf("\b"); break;
+                                case 'f': printf("\f"); break;
+                                case 'v': printf("\v"); break;
+                                default: printf("\\%c", str[j]); break;
+                            }
+                        } else {
+                            putchar(str[j]);
+                        }
+                    }
+                } else {
+                    // No escape sequences, just print the string as-is
+                    printf("%s", tokens[i].value);
+                }
                 break;
             case TOKEN_IDENTIFIER: {
                 Variable *var = findVariable(tokens[i].value);
@@ -98,7 +131,6 @@ void executePrint(Token *tokens, int numTokens) {
         printf("\n");
     }
 }
-
 // Execute LOAD command
 void executeLoad(Token *tokens, int numTokens) {
     if (numTokens < 2 || tokens[1].type != TOKEN_STRING) {
@@ -114,44 +146,46 @@ void executeLoad(Token *tokens, int numTokens) {
 
     // Tokenize the command name (might have spaces if quoted)
     char *cmdCopy = strdup(filename);
+    if (!cmdCopy) {
+        perror("strdup");
+        return;
+    }
+
     char *cmdToken = strtok(cmdCopy, " ");
     while (cmdToken != NULL) {
-        argv[argc++] = cmdToken;
+        argv[argc++] = strdup(cmdToken);  // Store a separate copy
         cmdToken = strtok(NULL, " ");
     }
-    free(cmdCopy);
+    free(cmdCopy); // Now safe to free
 
     // Add arguments, handling ~, ., .., -, --
     for (int i = 2; i < numTokens; i++) {
         if (tokens[i].type == TOKEN_STRING) {
-            // Further tokenize arguments within double quotes
             char *argCopy = strdup(tokens[i].value);
+            if (!argCopy) {
+                perror("strdup");
+                return;
+            }
+
             char *argToken = strtok(argCopy, " ");
             while (argToken != NULL) {
-                // Handle special arguments
                 if (strcmp(argToken, "~") == 0) {
-                    argv[argc++] = getenv("HOME");
-                } else if (strcmp(argToken, ".") == 0) {
-                    argv[argc++] = "."; // Current directory (no expansion needed)
-                } else if (strcmp(argToken, "..") == 0) {
-                    argv[argc++] = ".."; // Parent directory (no expansion needed)
-                } else if (strcmp(argToken, "-") == 0) {
-                    argv[argc++] = "-"; // Single dash (often indicates options)
-                } else if (strcmp(argToken, "--") == 0) {
-                    argv[argc++] = "--"; // Double dash (often indicates end of options)
+                    char *home = getenv("HOME");
+                    if (home) argv[argc++] = strdup(home);
+                } else if (strcmp(argToken, ".") == 0 || strcmp(argToken, "..") == 0 ||
+                           strcmp(argToken, "-") == 0 || strcmp(argToken, "--") == 0) {
+                    argv[argc++] = strdup(argToken);
                 } else {
-                    argv[argc++] = argToken;
+                    argv[argc++] = strdup(argToken);
                 }
                 argToken = strtok(NULL, " ");
             }
             free(argCopy);
-        } else {
-            // Handle other token types if needed
         }
     }
     argv[argc] = NULL;
 
-    // Search for the executable in PATH and execute
+    // Execute the command
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
@@ -163,6 +197,11 @@ void executeLoad(Token *tokens, int numTokens) {
         wait(NULL);
     } else {
         perror("fork");
+    }
+
+    // Free allocated argument copies
+    for (int i = 0; i < argc; i++) {
+        free(argv[i]);
     }
 }
 
