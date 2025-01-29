@@ -531,6 +531,12 @@ void executeLine(Line *line) {
         case KW_PRINT:
             executePrint(line->tokens, line->numTokens);
             break;
+        case KW_LOAD: // Add this case
+            executeLoad(line->tokens, line->numTokens);
+            break;
+        case KW_DIR: // Add this case
+            executeDir();
+            break;
         case KW_INPUT:
             executeInput(line->tokens, line->numTokens);
             break;
