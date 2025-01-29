@@ -111,29 +111,56 @@ void executeLoad(Token *tokens, int numTokens) {
     // Construct argv array for execvp
     char *argv[MAX_LINE_LENGTH]; // Adjust size as needed
     int argc = 0;
-    argv[argc++] = filename; // The first argument is the command itself
 
-    // Add arguments if present (for future improvements)
+    // Tokenize the command name (might have spaces if quoted)
+    char *cmdCopy = strdup(filename);
+    char *cmdToken = strtok(cmdCopy, " ");
+    while (cmdToken != NULL) {
+        argv[argc++] = cmdToken;
+        cmdToken = strtok(NULL, " ");
+    }
+    free(cmdCopy);
+
+    // Add arguments, handling ~, ., .., -, --
     for (int i = 2; i < numTokens; i++) {
         if (tokens[i].type == TOKEN_STRING) {
-            argv[argc++] = tokens[i].value;
+            // Further tokenize arguments within double quotes
+            char *argCopy = strdup(tokens[i].value);
+            char *argToken = strtok(argCopy, " ");
+            while (argToken != NULL) {
+                // Handle special arguments
+                if (strcmp(argToken, "~") == 0) {
+                    argv[argc++] = getenv("HOME");
+                } else if (strcmp(argToken, ".") == 0) {
+                    argv[argc++] = "."; // Current directory (no expansion needed)
+                } else if (strcmp(argToken, "..") == 0) {
+                    argv[argc++] = ".."; // Parent directory (no expansion needed)
+                } else if (strcmp(argToken, "-") == 0) {
+                    argv[argc++] = "-"; // Single dash (often indicates options)
+                } else if (strcmp(argToken, "--") == 0) {
+                    argv[argc++] = "--"; // Double dash (often indicates end of options)
+                } else {
+                    argv[argc++] = argToken;
+                }
+                argToken = strtok(NULL, " ");
+            }
+            free(argCopy);
         } else {
-            // Handle other token types or add more complex argument parsing here
+            // Handle other token types if needed
         }
     }
-    argv[argc] = NULL; // argv array must be NULL-terminated
+    argv[argc] = NULL;
 
     // Search for the executable in PATH and execute
     pid_t pid = fork();
     if (pid == 0) {
         // Child process
-        execvp(filename, argv);
-        // If execvp returns, an error occurred
+        execvp(argv[0], argv);
         perror("execvp");
         exit(1);
     } else if (pid > 0) {
         // Parent process
-        wait(NULL); // Wait for child process to finish
+        wait(NULL);
     } else {
         perror("fork");
     }
