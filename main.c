@@ -32,7 +32,7 @@ int main(int argc, char *argv[]) {
 
         // Check for shebang
         if (fgets(lineBuffer, sizeof(lineBuffer), file) != NULL) {
-            if (strncmp(lineBuffer, "#!/usr/bin/env CBSH", 19) != 0 && strncmp(lineBuffer, "#!/usr/bin/CBSH", 15) != 0) {
+            if (strncmp(lineBuffer, "#!/usr/bin/env cbsh", 19) != 0 && strncmp(lineBuffer, "#!/usr/bin/CBSH", 15) != 0) {
                 // Rewind to the beginning if no shebang is found
                 rewind(file);
             }
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
         runProgram(0);
     } else {
         // Interactive mode
-        printf("CBSH - Commodore BASIC Shell, version 1.p\n");
+        printf("CBSH - Commodore BASIC Shell, version 1.0\n \n");
         printf("READY.\n");
 
         while (1) {
