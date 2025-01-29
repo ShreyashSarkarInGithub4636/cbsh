@@ -34,7 +34,8 @@ typedef enum {
     KW_LIST, KW_NEW, KW_PRINT, KW_INPUT, KW_IF, KW_THEN, KW_FOR, KW_NEXT,
     KW_SQR, KW_RND, KW_SIN, KW_LET, KW_USR, KW_DATA, KW_READ, KW_REM,
     KW_CLEAR, KW_STOP, KW_TAB, KW_RESTORE, KW_ABS, KW_END, KW_INT,
-    KW_RETURN, KW_STEP, KW_GOTO, KW_GOSUB, KW_SET, KW_TO, KW_RUN, KW_NONE
+    KW_RETURN, KW_STEP, KW_GOTO, KW_GOSUB, KW_SET, KW_TO, KW_RUN, KW_NONE,
+    kW_LOAD, KW_DIR
 } Keyword;
 
 // A structure to represent a token
@@ -51,7 +52,7 @@ typedef struct {
     int numTokens;
 } Line;
 
-// Variable data types (simplified for this example)
+// Variable data types (not fully implemented!!!!)
 typedef enum {
     VAR_TYPE_NUMERIC,
     VAR_TYPE_STRING
@@ -63,7 +64,7 @@ typedef struct {
     VarType type;
     double numValue; // Store numeric values
     char strValue[MAX_LINE_LENGTH]; // Store string values
-    // Add these members for FOR...NEXT loop information:
+    
     int forNextLine;  // Line number of the matching NEXT
     double forStep;   // Step value of the loop
     double forEnd;    // End value of the loop
