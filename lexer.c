@@ -50,6 +50,8 @@ Token getNextToken(char *line, int *pos) {
         else if (strcasecmp(token.value, "NEW") == 0) token.keyword = KW_NEW;
         else if (strcasecmp(token.value, "PRINT") == 0) token.keyword = KW_PRINT;
         else if (strcasecmp(token.value, "INPUT") == 0) token.keyword = KW_INPUT;
+        else if (strcasecmp(token.value, "LOAD") == 0) token.keyword = KW_LOAD;
+        else if (strcasecmp(token.value, "DIR") == 0) token.keyword = KW_DIR;
         else if (strcasecmp(token.value, "IF") == 0) token.keyword = KW_IF;
         else if (strcasecmp(token.value, "THEN") == 0) token.keyword = KW_THEN;
         else if (strcasecmp(token.value, "FOR") == 0) token.keyword = KW_FOR;
