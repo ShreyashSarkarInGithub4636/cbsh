@@ -102,7 +102,7 @@ void executePrint(Token *tokens, int numTokens) {
 // Execute LOAD command
 void executeLoad(Token *tokens, int numTokens) {
     if (numTokens < 2 || tokens[1].type != TOKEN_STRING) {
-        printf('Invalid LOAD statement, try with "cmdname" \n');
+        printf("Invalid LOAD statement, try with double quotes with the cmdname in double quotes.\n");
         return;
     }
 
