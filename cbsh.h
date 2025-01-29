@@ -35,7 +35,7 @@ typedef enum {
     KW_SQR, KW_RND, KW_SIN, KW_LET, KW_USR, KW_DATA, KW_READ, KW_REM,
     KW_CLEAR, KW_STOP, KW_TAB, KW_RESTORE, KW_ABS, KW_END, KW_INT,
     KW_RETURN, KW_STEP, KW_GOTO, KW_GOSUB, KW_SET, KW_TO, KW_RUN, KW_NONE,
-    kW_LOAD, KW_DIR
+    KW_LOAD, KW_DIR
 } Keyword;
 
 // A structure to represent a token
