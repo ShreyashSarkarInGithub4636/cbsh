@@ -102,43 +102,41 @@ void executePrint(Token *tokens, int numTokens) {
 // Execute LOAD command
 void executeLoad(Token *tokens, int numTokens) {
     if (numTokens < 2 || tokens[1].type != TOKEN_STRING) {
-        printf("Invalid LOAD statement\n");
+        printf('Invalid LOAD statement, try with "cmdname" \n');
         return;
     }
 
-    char *filename = tokens[1].value;
-    char *path = getenv("PATH");
-    char *pathCopy = strdup(path); // Create a copy for strtok
-    char *dir = strtok(pathCopy, ":");
-    char fullPath[MAX_LINE_LENGTH];
+    char *filename = tokens[1].value; // Filename (or command) to execute
 
-    while (dir != NULL) {
-        snprintf(fullPath, sizeof(fullPath), "%s/%s", dir, filename);
+    // Construct argv array for execvp
+    char *argv[MAX_LINE_LENGTH]; // Adjust size as needed
+    int argc = 0;
+    argv[argc++] = filename; // The first argument is the command itself
 
-        if (access(fullPath, X_OK) == 0) {
-            pid_t pid = fork();
-            if (pid == 0) {
-                // Child process
-                execve(fullPath, NULL, environ);
-                perror("execve"); // Execve failed
-                exit(1);
-            } else if (pid > 0) {
-                // Parent process
-                wait(NULL); // Wait for child to complete
-                free(pathCopy);
-                return;
-            } else {
-                perror("fork");
-                free(pathCopy);
-                return;
-            }
+    // Add arguments if present (for future improvements)
+    for (int i = 2; i < numTokens; i++) {
+        if (tokens[i].type == TOKEN_STRING) {
+            argv[argc++] = tokens[i].value;
+        } else {
+            // Handle other token types or add more complex argument parsing here
         }
-
-        dir = strtok(NULL, ":");
     }
+    argv[argc] = NULL; // argv array must be NULL-terminated
 
-    printf("File not found or not executable: %s\n", filename);
-    free(pathCopy);
+    // Search for the executable in PATH and execute
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Child process
+        execvp(filename, argv);
+        // If execvp returns, an error occurred
+        perror("execvp");
+        exit(1);
+    } else if (pid > 0) {
+        // Parent process
+        wait(NULL); // Wait for child process to finish
+    } else {
+        perror("fork");
+    }
 }
 
 // Execute DIR command
