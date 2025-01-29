@@ -92,6 +92,8 @@ extern int gosubStackPtr;
 extern bool emu_amiga_m68k;
 
 // --- Function Declarations ---
+void executeLoad(Token *tokens, int numTokens);
+void executeDir();
 void executeLine(Line *line);
 void executeSet(Token *tokens, int numTokens);
 Token getNextToken(char *line, int *pos);
