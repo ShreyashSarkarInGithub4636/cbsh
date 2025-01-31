@@ -103,8 +103,14 @@ if test "x$enable_menuconfig" = "xyes"; then
 
     AC_MSG_RESULT([yes])
 
+    # Create menuconfig.sh for interactive configuration
     AC_CONFIG_FILES([menuconfig.sh])
+    AC_OUTPUT_COMMANDS([chmod +x menuconfig.sh])
+
+    # Start the menuconfig if --enable-menuconfig is passed
+    AC_MSG_NOTICE([Starting menuconfig...])
+    ./menuconfig.sh
 fi
 
 AC_CONFIG_FILES([Makefile])
-AC_OUTPUT_COMMANDS([chmod +x menuconfig.sh])
+AC_OUTPUT
