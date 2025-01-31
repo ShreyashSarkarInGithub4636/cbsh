@@ -15,4 +15,4 @@ cbsh_LDADD =
 
 AM_CFLAGS = -Wall -Wextra -I.
 
-AM_LDFLAGS = -lpthread -lreadline
+AM_LDFLAGS = -lpthread -lreadline -lncurses -lcurses
