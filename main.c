@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
         printf("READY.\n");
 
         while (1) {
-            lineBuffer = readline("# ");
+            lineBuffer = readline("cbsh> ");
             if (!lineBuffer) {
                 break; // Exit on EOF (Ctrl+D)
             }
