@@ -109,5 +109,6 @@ if test "x$enable_menuconfig" = "xyes"; then
     AC_CONFIG_FILES([menuconfig.sh])
 fi
 
+# Ensure the Makefile.in is generated correctly
 AC_CONFIG_FILES([Makefile])
-AC_OUTPUT_COMMANDS([chmod +x menuconfig.sh])
+AC_OUTPUT
