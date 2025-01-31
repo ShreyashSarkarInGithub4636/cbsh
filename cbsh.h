@@ -11,6 +11,8 @@
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/wait.h>
+#include <readline/readline.h>
+#include <readline/history.h>
 
 #define MAX_LINE_LENGTH 256
 #define MAX_NUM_LINES 1000
