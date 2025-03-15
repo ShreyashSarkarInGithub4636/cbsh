@@ -64,11 +64,10 @@ int main(int argc, char *argv[]) {
         runProgram(0);
     } else {
         // Interactive mode
-        printf("CBSH - Commodore BASIC Shell, version 1.0\n \n");
-        printf("READY.\n");
+        printf("CBSH - Commodore BASIC Shell, version 1.1\n \n");
 
         while (1) {
-            lineBuffer = readline("cbsh> ");
+            lineBuffer = readline("READY.\n cbsh> ");
             if (!lineBuffer) {
                 break; // Exit on EOF (Ctrl+D)
             }
