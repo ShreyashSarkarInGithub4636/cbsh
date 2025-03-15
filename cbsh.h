@@ -7,12 +7,12 @@
 #include <math.h>
 #include <ctype.h>
 #include <stdbool.h>
-#include "config.h"
 #include <unistd.h>
 #include <dirent.h>
 #include <sys/wait.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include "config.h"
 
 #define MAX_LINE_LENGTH 256
 #define MAX_NUM_LINES 1000
@@ -37,7 +37,7 @@ typedef enum {
     KW_SQR, KW_RND, KW_SIN, KW_LET, KW_USR, KW_DATA, KW_READ, KW_REM,
     KW_CLEAR, KW_STOP, KW_TAB, KW_RESTORE, KW_ABS, KW_END, KW_INT,
     KW_RETURN, KW_STEP, KW_GOTO, KW_GOSUB, KW_SET, KW_TO, KW_RUN, KW_NONE,
-    KW_LOAD, KW_DIR
+    KW_LOAD, KW_DIR, KW_ADD, KW_SUB, KW_DIV, KW_FLOOR
 } Keyword;
 
 // A structure to represent a token
@@ -54,7 +54,7 @@ typedef struct {
     int numTokens;
 } Line;
 
-// Variable data types (not fully implemented!!!!)
+// Variable data types
 typedef enum {
     VAR_TYPE_NUMERIC,
     VAR_TYPE_STRING
@@ -66,7 +66,7 @@ typedef struct {
     VarType type;
     double numValue; // Store numeric values
     char strValue[MAX_LINE_LENGTH]; // Store string values
-    
+
     int forNextLine;  // Line number of the matching NEXT
     double forStep;   // Step value of the loop
     double forEnd;    // End value of the loop
@@ -85,7 +85,7 @@ extern int currentLine; // Current line being executed
 extern int nextLine; // Next line to be executed
 extern bool running;
 
-// for gosub
+// GOSUB stack
 #define MAX_GOSUB_STACK 100
 extern int gosubStack[MAX_GOSUB_STACK];
 extern int gosubStackPtr;
@@ -123,5 +123,11 @@ void executeReturn();
 void executeEnd();
 void runProgram(int startLine);
 void addLine(Line *newLine);
+
+// Math operations
+void executeAdd(char *arg1, char *arg2);
+void executeSub(char *arg1, char *arg2);
+void executeDiv(char *arg1, char *arg2);
+void executeFloor(char *arg);
 
 #endif // CBSH_H
