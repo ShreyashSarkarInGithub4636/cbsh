@@ -27,6 +27,37 @@ void executeList(int startLine, int endLine) {
     }
 }
 
+// ADD command: Adds two numbers
+void executeAdd(char *arg1, char *arg2) {
+    double a = atof(arg1);
+    double b = atof(arg2);
+    printf("Result: %.2f\n", a + b);
+}
+
+// SUB command: Subtracts second number from first
+void executeSub(char *arg1, char *arg2) {
+    double a = atof(arg1);
+    double b = atof(arg2);
+    printf("Result: %.2f\n", a - b);
+}
+
+// DIV command: Divides first number by second
+void executeDiv(char *arg1, char *arg2) {
+    double a = atof(arg1);
+    double b = atof(arg2);
+    if (b == 0) {
+        printf("Error: Division by zero\n");
+        return;
+    }
+    printf("Result: %.2f\n", a / b);
+}
+
+// FLOOR command: Floors a number
+void executeFloor(char *arg) {
+    double a = atof(arg);
+    printf("Result: %.0f\n", floor(a));
+}
+
 // Execute NEW command
 void executeNew() {
     numLines = 0;
@@ -353,7 +384,7 @@ void executeIf(Token *tokens, int numTokens) {
     }
 }
 
-// Execute FOR command
+// execute for
 void executeFor(Token *tokens, int numTokens) {
     if (numTokens < 7 || tokens[2].type != TOKEN_OPERATOR || strcmp(tokens[2].value, "=") != 0 || tokens[4].keyword != KW_TO) {
         printf("Invalid FOR statement\n");
@@ -363,19 +394,19 @@ void executeFor(Token *tokens, int numTokens) {
     char *varName = tokens[1].value;
     double startValue = evaluateExpression(&tokens[3], 1);
     double endValue = evaluateExpression(&tokens[5], 1);
-    double stepValue = 1; // Default step
+    double stepValue = 1;  // Default step
 
     int stepIndex = 6;
     if (stepIndex < numTokens && tokens[stepIndex].keyword == KW_STEP) {
         if (stepIndex + 1 < numTokens) {
             stepValue = evaluateExpression(&tokens[stepIndex + 1], 1);
-            stepIndex += 2;
         } else {
             printf("Missing value after STEP\n");
             return;
         }
     }
 
+    // Ensure variable exists
     Variable *loopVar = findVariable(varName);
     if (!loopVar) {
         addOrUpdateVariable(varName, VAR_TYPE_NUMERIC, startValue, "");
@@ -384,31 +415,44 @@ void executeFor(Token *tokens, int numTokens) {
         loopVar->numValue = startValue;
     }
 
+    loopVar->forStep = stepValue;
+    loopVar->forEnd = endValue;
+    loopVar->forStartLine = currentLine;
+
+    // Find matching NEXT statement
     int nextLineIndex = -1;
+    int nestedForCount = 1; // Track nested loops
+
     for (int i = currentLine + 1; i < numLines; i++) {
-        if (program[i].numTokens > 0 && program[i].tokens[0].keyword == KW_NEXT) {
-            if (program[i].numTokens > 1 && program[i].tokens[1].type == TOKEN_IDENTIFIER) {
-                if (strcmp(program[i].tokens[1].value, varName) == 0) {
-                    nextLineIndex = i;
-                    break;
+        if (program[i].numTokens > 0) {
+            if (program[i].tokens[0].keyword == KW_FOR) {
+                nestedForCount++; // Nested FOR detected
+            } else if (program[i].tokens[0].keyword == KW_NEXT) {
+                if (program[i].numTokens > 1 && program[i].tokens[1].type == TOKEN_IDENTIFIER) {
+                    if (strcmp(program[i].tokens[1].value, varName) == 0) {
+                        nestedForCount--; // Matching NEXT for this FOR
+                        if (nestedForCount == 0) {
+                            nextLineIndex = i;
+                            break;
+                        }
+                    }
+                } else {
+                    nestedForCount--; // Handle NEXT without a variable
+                    if (nestedForCount == 0) {
+                        nextLineIndex = i;
+                        break;
+                    }
                 }
-            } else {
-                nextLineIndex = i;
-                break;
             }
         }
     }
 
     if (nextLineIndex == -1) {
-        printf("FOR without NEXT\n");
+        printf("FOR without matching NEXT\n");
         return;
     }
 
     loopVar->forNextLine = nextLineIndex;
-    loopVar->forStep = stepValue;
-    loopVar->forEnd = endValue;
-    loopVar->forStartLine = currentLine;
-
     nextLine = currentLine + 1;
 }
 
@@ -598,7 +642,7 @@ void executeLine(Line *line) {
         case KW_LOAD: // Add this case
             executeLoad(line->tokens, line->numTokens);
             break;
-        case KW_DIR: // Add this case
+        case KW_DIR: 
             executeDir();
             break;
         case KW_INPUT:
@@ -628,6 +672,37 @@ void executeLine(Line *line) {
         case KW_READ:
             executeRead(line->tokens, line->numTokens);
             break;
+        case KW_ADD:
+    if (line->numTokens >= 3) {
+        executeAdd(line->tokens[1].value, line->tokens[2].value);
+    } else {
+        printf("Syntax error: ADD requires two arguments\n");
+    }
+    break;
+
+case KW_SUB:
+    if (line->numTokens >= 3) {
+        executeSub(line->tokens[1].value, line->tokens[2].value);
+    } else {
+        printf("Syntax error: SUB requires two arguments\n");
+    }
+    break;
+
+case KW_DIV:
+    if (line->numTokens >= 3) {
+        executeDiv(line->tokens[1].value, line->tokens[2].value);
+    } else {
+        printf("Syntax error: DIV requires two arguments\n");
+    }
+    break;
+
+case KW_FLOOR:
+    if (line->numTokens >= 2) {
+        executeFloor(line->tokens[1].value);
+    } else {
+        printf("Syntax error: FLOOR requires one argument\n");
+    }
+    break;
         case KW_RESTORE:
             executeRestore();
             break;
